@@ -613,4 +613,3 @@ zycrypt
 
 ---
 
-*ZyCrypt — Ziya Encryptor. Satu binary. Kendali penuh. Karya terlindungi.*

@@ -17,6 +17,12 @@ import (
 	"github.com/ziaulkamal/zycrypt/internal/license"
 )
 
+type sessionPayload struct {
+	Dom  string `json:"dom"`
+	Exp  int64  `json:"exp"`
+	Plan string `json:"plan"`
+}
+
 type ValidateHandler struct {
 	licSvc      *license.Service
 	domSvc      *domain.Service
@@ -109,13 +115,21 @@ func (h *ValidateHandler) Validate(w http.ResponseWriter, r *http.Request) {
 	// 7. Log success
 	h.logEventRaw(lic, "validate_success", req.Domain, r.RemoteAddr, req.PkgVersion)
 
-	// 8. Build encrypted response payload
+	// 8. Build session token — HMAC-signed, verified by PHP with hash_hmac only (no AES in PHP)
+	sessionToken, err := generateSessionToken(h.secret, req.Domain, lic.Plan.Slug, h.tokenTTLMin)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	// 9. Build encrypted response payload
 	payload := map[string]interface{}{
-		"valid":       true,
-		"plan":        lic.Plan.Slug,
-		"site_limit":  lic.Plan.SiteLimit,
-		"is_lifetime": lic.IsLifetime,
-		"ts":          time.Now().Unix(),
+		"valid":         true,
+		"plan":          lic.Plan.Slug,
+		"site_limit":    lic.Plan.SiteLimit,
+		"is_lifetime":   lic.IsLifetime,
+		"ts":            time.Now().Unix(),
+		"session_token": sessionToken,
 	}
 	if lic.ExpiresAt != nil {
 		payload["expires_at"] = lic.ExpiresAt.Format(time.RFC3339)
@@ -139,6 +153,24 @@ func (h *ValidateHandler) logEventRaw(lic *license.License, event, dom, ip, pkgV
 	// delegate to license service logging
 	_ = lic
 	_ = event
+}
+
+// generateSessionToken produces a HMAC-signed token verified by PHP with a single hash_hmac call.
+// Format: base64url(payload_json).HMAC_SHA256_hex
+// PHP verifies: hash_hmac('sha256', 'session-v1:' + payload_b64, shared_secret) == sig
+func generateSessionToken(secret, domain, plan string, ttlMinutes int) (string, error) {
+	sp := sessionPayload{
+		Dom:  domain,
+		Exp:  time.Now().Add(time.Duration(ttlMinutes) * time.Minute).Unix(),
+		Plan: plan,
+	}
+	payloadJSON, err := json.Marshal(sp)
+	if err != nil {
+		return "", err
+	}
+	payloadB64 := base64.RawURLEncoding.EncodeToString(payloadJSON)
+	sig := zcrypto.SignHMAC(secret, "session-v1:"+payloadB64)
+	return payloadB64 + "." + sig, nil
 }
 
 // encryptPayload serializes payload to JSON then encrypts with AES-256-GCM using the shared secret.
