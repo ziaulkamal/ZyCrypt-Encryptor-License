@@ -1,0 +1,45 @@
+# Binary
+zycrypt
+zycrypt.exe
+
+# Config (berisi credentials & shared_secret)
+zycrypt.yaml
+
+# Documents
+PRD.md
+TODO.md
+
+# Go
+go.sum
+
+# Build output
+dist/
+bin/
+*.exe
+*.out
+*.test
+*.prof
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Theme storage (v1.1.0)
+/var/zycrypt/
+themes/
+
+# Test coverage
+coverage.out
+coverage.html

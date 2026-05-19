@@ -1,0 +1,25 @@
+# ZyCrypt Configuration Example
+# Salin file ini menjadi zycrypt.yaml lalu sesuaikan nilainya:
+#   cp zycrypt.yaml.example zycrypt.yaml
+
+server:
+  host: 0.0.0.0
+  port: 8743
+  base_url: https://zycrypt.yourdomain.com
+
+database:
+  dsn: postgres://user:password@localhost:5432/zycrypt?sslmode=disable
+
+security:
+  # Wajib diisi: string acak minimal 32 karakter
+  # Generate contoh: openssl rand -base64 32
+  shared_secret: "ganti-dengan-string-acak-minimal-32-karakter-xxxxxx"
+  token_ttl_minutes: 10
+  grace_period_hours: 24
+  min_pkg_version: "1.0.0"
+
+storage:
+  themes_path: /var/zycrypt/themes
+
+rate_limit:
+  requests_per_minute: 60
