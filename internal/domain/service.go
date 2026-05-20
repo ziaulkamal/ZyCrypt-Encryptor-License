@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -8,6 +9,8 @@ import (
 	"github.com/ziaulkamal/zycrypt/internal/license"
 	"gorm.io/gorm"
 )
+
+var ErrSiteLimitReached = errors.New("site_limit_reached")
 
 type Service struct {
 	db *gorm.DB
@@ -71,7 +74,7 @@ func (s *Service) Check(lic *license.License, domain string) (ok bool, isNew boo
 
 	siteLimit := lic.Plan.SiteLimit
 	if siteLimit != -1 && int(count) >= siteLimit {
-		return false, false, nil
+		return false, false, fmt.Errorf("%w: %d/%d slots used", ErrSiteLimitReached, count, siteLimit)
 	}
 
 	// Auto-register

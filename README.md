@@ -14,10 +14,12 @@ Sistem manajemen lisensi berbasis Go untuk produk **Laravel + Vue + Inertia.js**
 6. [Registrasi Lisensi](#6-registrasi-lisensi)
 7. [Manajemen Lisensi](#7-manajemen-lisensi)
 8. [Manajemen Domain](#8-manajemen-domain)
-9. [Utilitas Key](#9-utilitas-key)
-10. [Menjalankan Server API](#10-menjalankan-server-api)
-11. [API Endpoint](#11-api-endpoint)
-12. [Referensi Lengkap CLI](#12-referensi-lengkap-cli)
+9. [Manajemen Tema](#9-manajemen-tema)
+10. [Utilitas Key](#10-utilitas-key)
+11. [Menjalankan Server API](#11-menjalankan-server-api)
+12. [API Endpoint](#12-api-endpoint)
+13. [Referensi Lengkap CLI](#13-referensi-lengkap-cli)
+14. [Alur Kerja End-to-End](#14-alur-kerja-end-to-end)
 
 ---
 
@@ -77,9 +79,9 @@ rate_limit:
   requests_per_minute: 60
 ```
 
-### Override via Environment Variable
+> `shared_secret` harus sama persis dengan `ZYCRYPT_SHARED_SECRET` di `.env` setiap aplikasi client. Jangan pernah di-commit ke repository.
 
-Setiap nilai di `zycrypt.yaml` bisa di-override menggunakan env variable dengan prefix `ZYCRYPT_`:
+### Override via Environment Variable
 
 ```bash
 ZYCRYPT_SERVER_PORT=9000
@@ -113,13 +115,15 @@ docker exec nama_container psql -U user -d postgres -c "CREATE DATABASE zycrypt;
 ./zycrypt db migrate
 ```
 
-Output:
 ```
 Running migrations...
   ✓ Applied: 001_create_plans.sql
   ✓ Applied: 002_create_licenses.sql
   ✓ Applied: 003_create_domains.sql
   ✓ Applied: 004_create_audit_logs.sql
+  ✓ Applied: 005_create_themes.sql
+  ✓ Applied: 006_create_plan_themes.sql
+  ✓ Applied: 007_create_delivery_tokens.sql
 ✓ Migrations complete
 ```
 
@@ -155,17 +159,10 @@ Plan adalah template lisensi yang mendefinisikan jumlah domain, durasi, dan harg
 **Contoh semua variasi plan:**
 
 ```bash
-# Single Site 1 Tahun
-./zycrypt plan create --name "Single Site 1 Tahun" --slug single_site_1y --limit 1 --duration 1y --price 500000
-
-# Single Site 3 Tahun
-./zycrypt plan create --name "Single Site 3 Tahun" --slug single_site_3y --limit 1 --duration 3y --price 1200000
-
-# Multi Site 1 Tahun (5 domain)
-./zycrypt plan create --name "Multi Site 1 Tahun" --slug multi_site_1y --limit 5 --duration 1y --price 1500000
-
-# Lifetime Unlimited
-./zycrypt plan create --name "Lifetime Unlimited" --slug lifetime_unlimited --limit -1 --duration lifetime --price 5000000
+./zycrypt plan create --name "Single Site 1 Tahun"  --slug single_site_1y      --limit 1  --duration 1y       --price 500000
+./zycrypt plan create --name "Single Site 3 Tahun"  --slug single_site_3y      --limit 1  --duration 3y       --price 1200000
+./zycrypt plan create --name "Multi Site 1 Tahun"   --slug multi_site_1y       --limit 5  --duration 1y       --price 1500000
+./zycrypt plan create --name "Lifetime Unlimited"   --slug lifetime_unlimited  --limit -1 --duration lifetime --price 5000000
 ```
 
 ### Lihat semua plan
@@ -175,10 +172,11 @@ Plan adalah template lisensi yang mendefinisikan jumlah domain, durasi, dan harg
 ```
 
 ```
-SLUG            NAME                 LIMIT  DURATION  PRICE      ACTIVE
-single_site_1y  Single Site 1 Tahun  1      1y        500000.00  yes
-single_site_3y  Single Site 3 Tahun  1      3y        1200000.00 yes
-multi_site_1y   Multi Site 1 Tahun   5      1y        1500000.00 yes
+SLUG              NAME                  LIMIT  DURATION  PRICE       ACTIVE
+single_site_1y    Single Site 1 Tahun   1      1y        500000.00   yes
+single_site_3y    Single Site 3 Tahun   1      3y        1200000.00  yes
+multi_site_1y     Multi Site 1 Tahun    5      1y        1500000.00  yes
+lifetime_unlimited Lifetime Unlimited   -1     lifetime  5000000.00  yes
 ```
 
 ### Update plan
@@ -204,57 +202,52 @@ Ada dua cara membuat lisensi: **interaktif** (direkomendasikan) atau **via flag 
 
 ### Cara 1 — Interaktif (Register Wizard)
 
-Panduan langkah demi langkah, cocok untuk digunakan sehari-hari:
-
 ```bash
 ./zycrypt register
 ```
 
 ```
   ╔══════════════════════════════════════╗
-  ║    ZyCrypt — Registrasi Lisensi      ║
+  ║    ZyCrypt — Buat Lisensi Baru       ║
   ╚══════════════════════════════════════╝
 
-  ── Step 1: Masukkan nama domain ──
-   Format: tanpa http:// atau https://
-   Contoh: mtq.abdya.go.id
-   Domain: portal.kotabekasi.go.id
-
-  ── Step 2: Pilih Paket ──
+  ── Step 1: Pilih Paket ──
    1. Single Site  — 1 domain
    2. Multi Site   — hingga 5 domain
    Pilihan [1/2]: 1
 
-  ── Step 3: Pilih Durasi ──
+  ── Step 2: Pilih Durasi ──
    1. 1 Tahun
    2. 3 Tahun
    3. Lifetime (tanpa batas)
    Pilihan [1/2/3]: 1
 
-  ── Step 4: Identifikasi Pelanggan ──
+  ── Step 3: Identifikasi Pelanggan ──
    Nama pelanggan: Dinas Kominfo Kota Bekasi
    Email pelanggan: it@kotabekasi.go.id
 
   Memproses...
 
   ──────────────────────────────────────
-  ✓  Registrasi Berhasil!
+  ✓  Lisensi Berhasil Dibuat!
   ──────────────────────────────────────
-  Domain   : portal.kotabekasi.go.id
-  Key      : ZYC-S1GH-MSN9-2XBM-BQBD
-  Paket    : Single Site
-  Durasi   : 1 Tahun
-  Expired  : 19 May 2027
-  Status   : active
-  Dibuat   : 19 May 2026, 23:33
+  Pelanggan : Dinas Kominfo Kota Bekasi (it@kotabekasi.go.id)
+  Key       : ZYC-S1GH-MSN9-2XBM-BQBD
+  Paket     : Single Site
+  Durasi    : 1 Tahun
+  Expired   : 19 May 2027
+  Dibuat    : 19 May 2026, 23:33
   ──────────────────────────────────────
 
-  Simpan key di file .env project client:
+  Berikan key ini ke client, lalu minta mereka set di .env:
   ZYCRYPT_LICENSE_KEY=ZYC-S1GH-MSN9-2XBM-BQBD
   ZYCRYPT_SERVER_URL=https://zycrypt.yourdomain.com
+
+  Domain akan otomatis terdaftar saat pertama kali aplikasi client
+  melakukan validasi lisensi.
 ```
 
-> Domain otomatis terdaftar langsung. Plan yang cocok dicari otomatis — jika belum ada, dibuat baru.
+> **Domain tidak perlu didaftarkan di awal.** Saat client pertama kali menjalankan aplikasinya dan validasi lisensi berhasil, domain mereka otomatis tercatat di database.
 
 ### Cara 2 — Via Flag
 
@@ -289,9 +282,9 @@ Panduan langkah demi langkah, cocok untuk digunakan sehari-hari:
 ```
 
 ```
-KEY                      CUSTOMER                    PLAN            STATUS  EXPIRES
-ZYC-S1GH-MSN9-2XBM-BQBD  Dinas Kominfo Kota Bekasi  single_site_1y  active  2027-05-19
-ZYC-S147-DUVH-349E-2HRL  Pemerintah Aceh Barat Daya  single_site_1y  active  2027-05-19
+KEY                       CUSTOMER                      PLAN            STATUS  EXPIRES
+ZYC-S1GH-MSN9-2XBM-BQBD  Dinas Kominfo Kota Bekasi     single_site_1y  active  2027-05-19
+ZYC-S147-DUVH-349E-2HRL  Pemerintah Aceh Barat Daya    single_site_1y  active  2027-05-19
 ```
 
 ### Detail lisensi
@@ -313,7 +306,7 @@ Domains:
 
 Recent events:
   [2026-05-19 23:33:20] license_created
-  [2026-05-19 23:45:01] validate_success
+  [2026-05-19 23:45:01] validate_success   portal.kotabekasi.go.id
 ```
 
 ### Ban lisensi
@@ -322,7 +315,7 @@ Recent events:
 ./zycrypt license ban ZYC-S1GH-MSN9-2XBM-BQBD --reason "Pelanggaran ketentuan penggunaan"
 ```
 
-> Validasi berikutnya (maks. 10 menit) akan langsung ditolak dengan kode `license_banned`. Grace period tidak berlaku untuk status banned.
+> Validasi berikutnya (maks. dalam TTL token) akan langsung ditolak dengan kode `license_banned`. Grace period tidak berlaku untuk status banned.
 
 ### Unban lisensi
 
@@ -354,21 +347,7 @@ CLI akan meminta konfirmasi dengan mengetik ulang key sebelum data dihapus perma
 
 ## 8. Manajemen Domain
 
-### Tambah domain ke lisensi
-
-```bash
-./zycrypt domain add ZYC-S1GH-MSN9-2XBM-BQBD --domain mtq.kotabekasi.go.id
-```
-
-> Untuk paket Single Site, hanya boleh 1 domain. Untuk Multi Site, sesuai batas plan.
-
-### Hapus domain dari lisensi
-
-```bash
-./zycrypt domain remove ZYC-S1GH-MSN9-2XBM-BQBD --domain mtq.kotabekasi.go.id
-```
-
-Gunakan ini ketika client pindah server atau ganti domain.
+Domain terdaftar **otomatis** saat validasi lisensi pertama kali berhasil. Perintah di bawah digunakan untuk keperluan manual seperti pindah domain atau koreksi data.
 
 ### Lihat daftar domain
 
@@ -377,14 +356,81 @@ Gunakan ini ketika client pindah server atau ganti domain.
 ```
 
 ```
-DOMAIN                      PRIMARY  REGISTERED
-portal.kotabekasi.go.id     yes      2026-05-19
-mtq.kotabekasi.go.id        no       2026-05-20
+DOMAIN                    PRIMARY  REGISTERED
+portal.kotabekasi.go.id   yes      2026-05-19
+mtq.kotabekasi.go.id      no       2026-05-20
+```
+
+### Tambah domain secara manual
+
+Digunakan jika vendor perlu mendaftarkan domain client sebelum client deploy, atau memindahkan domain ke slot yang sudah penuh.
+
+```bash
+./zycrypt domain add ZYC-S1GH-MSN9-2XBM-BQBD --domain mtq.kotabekasi.go.id
+```
+
+### Hapus domain dari lisensi
+
+Digunakan ketika client pindah server atau ganti domain. Setelah dihapus, domain lama tidak dapat memvalidasi lisensi, dan slot terbuka untuk domain baru.
+
+```bash
+./zycrypt domain remove ZYC-S1GH-MSN9-2XBM-BQBD --domain mtq.kotabekasi.go.id
+```
+
+> Untuk paket Single Site (limit 1), hapus domain lama terlebih dahulu sebelum client deploy di domain baru.
+
+---
+
+## 9. Manajemen Tema
+
+Tema adalah bundle ZIP berisi komponen Vue, halaman Inertia, CSS, dan file konfigurasi yang dikirim terenkripsi ke client saat instalasi.
+
+### Upload tema
+
+```bash
+./zycrypt theme upload \
+  --slug crm-starter \
+  --name "CRM Starter" \
+  --version 1.2.0 \
+  --file /path/ke/crm-starter.zip
+```
+
+### Lihat semua tema
+
+```bash
+./zycrypt theme list
+```
+
+```
+SLUG         NAME          VERSION  SIZE     CHECKSUM
+crm-starter  CRM Starter   1.2.0    151 KB   78ff5f7b...
+```
+
+### Assign tema ke plan
+
+Client hanya dapat mengunduh tema yang di-assign ke plan lisensi mereka.
+
+```bash
+./zycrypt theme assign crm-starter --plan single_site_1y
+./zycrypt theme assign crm-starter --plan lifetime_unlimited
+```
+
+### Unassign tema dari plan
+
+```bash
+./zycrypt theme unassign crm-starter --plan single_site_1y
+```
+
+### Hapus tema
+
+```bash
+./zycrypt theme delete crm-starter
+./zycrypt theme delete crm-starter --force   # lewati konfirmasi
 ```
 
 ---
 
-## 9. Utilitas Key
+## 10. Utilitas Key
 
 ### Generate key (preview tanpa simpan ke DB)
 
@@ -414,7 +460,7 @@ Preview key (not saved to DB):
 
 ---
 
-## 10. Menjalankan Server API
+## 11. Menjalankan Server API
 
 ```bash
 # Jalankan di port default (8743)
@@ -474,27 +520,25 @@ server {
 
 ---
 
-## 11. API Endpoint
+## 12. API Endpoint
+
+Semua endpoint diawali dengan `/api/v1`. Request validation menggunakan HMAC-SHA256 dengan `shared_secret`.
 
 ### GET `/api/v1/ping`
-
-Cek status server.
 
 ```bash
 curl https://zycrypt.yourdomain.com/api/v1/ping
 ```
 
 ```json
-{
-  "status": "ok",
-  "version": "1.0.0",
-  "ts": 1747612800
-}
+{ "status": "ok", "version": "1.0.0", "ts": 1747612800 }
 ```
+
+---
 
 ### POST `/api/v1/validate`
 
-Validasi lisensi dari package client. Dipanggil otomatis oleh `zycrypt-vue` dan `zycrypt-laravel`.
+Dipanggil otomatis oleh `zycrypt-laravel` setiap TTL habis atau saat lock file tidak ada.
 
 **Request:**
 ```json
@@ -507,37 +551,36 @@ Validasi lisensi dari package client. Dipanggil otomatis oleh `zycrypt-vue` dan 
 }
 ```
 
-Signature dibuat dengan: `HMAC-SHA256(shared_secret, license_key + ":" + domain + ":" + timestamp)`
+Signature: `HMAC-SHA256(shared_secret, license_key + ":" + domain + ":" + timestamp)`
 
 **Response sukses (200):**
 ```json
-{
-  "data": "base64_aes256_encrypted_payload"
-}
+{ "data": "base64_aes256gcm_encrypted_payload" }
 ```
 
 Payload setelah didekripsi:
 ```json
 {
-  "valid": true,
-  "plan": "single_site_1y",
-  "site_limit": 1,
-  "expires_at": "2027-05-19T00:00:00Z",
-  "is_lifetime": false,
-  "ts": 1747612800
+  "valid":         true,
+  "plan":          "single_site_1y",
+  "site_limit":    1,
+  "is_lifetime":   false,
+  "expires_at":    "2027-05-19T00:00:00Z",
+  "session_token": "base64url_payload.hmac_hex",
+  "ts":            1747612800
 }
 ```
 
 **Response gagal (403):**
 ```json
 {
-  "valid": false,
+  "valid":  false,
   "reason": "license_banned",
   "detail": "Pelanggaran ketentuan penggunaan"
 }
 ```
 
-**Kode reason yang mungkin:**
+**Kode `reason`:**
 
 | Kode | Penyebab |
 |---|---|
@@ -545,71 +588,225 @@ Payload setelah didekripsi:
 | `license_banned` | Lisensi dibanned oleh admin |
 | `license_inactive` | Lisensi dinonaktifkan |
 | `license_expired` | Masa aktif habis |
-| `domain_mismatch` | Domain tidak terdaftar & limit penuh |
+| `site_limit_reached` | Semua slot domain sudah terisi (limit plan terpenuhi) |
 | `invalid_signature` | HMAC signature tidak valid |
-| `token_expired` | Timestamp request lebih dari 10 menit |
+| `token_expired` | Timestamp request sudah kadaluarsa |
+
+> **Auto-register domain:** jika domain belum pernah terdaftar dan masih ada slot kosong di plan, domain otomatis didaftarkan saat validasi pertama kali berhasil.
+
+---
+
+### POST `/api/v1/themes`
+
+Ambil daftar tema yang tersedia untuk lisensi tertentu.
+
+**Request:**
+```json
+{
+  "license_key": "ZYC-S1AB-2C3D-4E5F-6G7H",
+  "domain":      "portal.kotabekasi.go.id",
+  "timestamp":   1747612800,
+  "signature":   "hmac_sha256_hex"
+}
+```
+
+**Response (200):**
+```json
+{
+  "themes": [
+    { "slug": "crm-starter", "name": "CRM Starter", "version": "1.2.0" }
+  ]
+}
+```
+
+---
+
+### POST `/api/v1/activate`
+
+Terbitkan delivery token untuk mengunduh tema. Token hanya berlaku **15 menit** dan **sekali pakai**.
+
+**Request:**
+```json
+{
+  "license_key": "ZYC-S1AB-2C3D-4E5F-6G7H",
+  "domain":      "portal.kotabekasi.go.id",
+  "theme_slug":  "crm-starter",
+  "timestamp":   1747612800,
+  "signature":   "hmac_sha256_hex"
+}
+```
+
+Signature: `HMAC-SHA256(shared_secret, license_key + ":" + domain + ":" + theme_slug + ":" + timestamp)`
+
+**Response (200):**
+```json
+{ "token": "64_char_hex_delivery_token" }
+```
+
+---
+
+### GET `/api/v1/download/{token}`
+
+Unduh bundle tema. Mengembalikan ZIP terenkripsi AES-256-CBC dalam format base64.
+
+**Response (200):**
+```json
+{
+  "data":     "base64_aes256cbc_encrypted_zip",
+  "checksum": "sha256_hex_of_raw_zip"
+}
+```
+
+Dekripsi oleh `zycrypt-laravel`: key = `HMAC-SHA256(shared_secret, "bundle-key")[:32]`, format = `IV(16 bytes) + ciphertext`.
+
+---
 
 ### Grace Period
 
-Jika server tidak dapat dijangkau, package client mengizinkan aplikasi tetap berjalan selama **24 jam** sejak validasi terakhir yang berhasil. Grace period **tidak berlaku** untuk status `banned` dan `expired`.
+Jika server tidak dapat dijangkau, `zycrypt-laravel` mengizinkan aplikasi tetap berjalan selama **24 jam** sejak validasi terakhir yang berhasil. Grace period **tidak berlaku** untuk status `banned`.
 
 ---
 
-## 12. Referensi Lengkap CLI
+## 13. Referensi Lengkap CLI
 
 ```
 zycrypt
-├── register                           Registrasi lisensi interaktif (wizard)
+├── register                             Buat lisensi baru (wizard interaktif, 3 langkah)
 │
-├── serve                              Jalankan HTTP license server
-│   ├── --port   int                   Override port
-│   └── --config string                Path ke config file
+├── serve                                Jalankan HTTP license server
+│   └── --port  int                      Override port (default: 8743)
 │
 ├── db
-│   └── migrate                        Jalankan migrasi database
+│   └── migrate                          Jalankan migrasi database
 │
 ├── plan
-│   ├── create                         Buat plan baru
-│   │   ├── --name     string*         Nama tampilan
-│   │   ├── --slug     string*         Slug unik
-│   │   ├── --limit    int             1 | 5 | -1
-│   │   ├── --duration string          1y | 3y | lifetime
-│   │   └── --price    float           Harga Rupiah
-│   ├── list                           Tampilkan semua plan
-│   ├── update [slug]                  Update atribut plan
-│   │   ├── --name     string
-│   │   ├── --price    float
-│   │   └── --limit    int
-│   └── disable [slug]                 Nonaktifkan plan
+│   ├── create                           Buat plan baru
+│   │   ├── --name      string*          Nama tampilan
+│   │   ├── --slug      string*          Slug unik
+│   │   ├── --limit     int              1 | 5 | -1
+│   │   ├── --duration  string           1y | 3y | lifetime
+│   │   └── --price     float            Harga Rupiah
+│   ├── list                             Tampilkan semua plan
+│   ├── update [slug]                    Update atribut plan
+│   └── disable [slug]                   Nonaktifkan plan
 │
 ├── license
-│   ├── create                         Buat lisensi baru
-│   │   ├── --name     string*         Nama pelanggan
-│   │   ├── --email    string*         Email pelanggan
-│   │   └── --plan     string*         Slug plan
-│   ├── list                           Tampilkan semua lisensi
-│   │   └── --status   string          active|inactive|banned|expired
-│   ├── show [key]                     Detail lisensi + domain + 10 log terakhir
-│   ├── ban [key]                      Set status banned
-│   │   └── --reason   string*         Alasan ban (wajib)
-│   ├── unban [key]                    Restore ke status active
-│   ├── extend [key]                   Perpanjang masa aktif
-│   │   └── --years    int             Jumlah tahun (default: 1)
-│   └── revoke [key]                   Hapus permanen (dengan konfirmasi)
+│   ├── create                           Buat lisensi baru via flag
+│   │   ├── --name      string*          Nama pelanggan
+│   │   ├── --email     string*          Email pelanggan
+│   │   └── --plan      string*          Slug plan
+│   ├── list                             Tampilkan semua lisensi
+│   │   └── --status    string           active|inactive|banned|expired
+│   ├── show  [key]                      Detail lisensi + domain + log terakhir
+│   ├── ban   [key]                      Set status banned
+│   │   └── --reason    string*          Alasan ban
+│   ├── unban [key]                      Restore ke status active
+│   ├── extend [key]                     Perpanjang masa aktif
+│   │   └── --years     int              Jumlah tahun (default: 1)
+│   └── revoke [key]                     Hapus permanen (dengan konfirmasi)
 │
-├── domain
-│   ├── add [key]                      Tambah domain ke lisensi
-│   │   └── --domain   string*         Hostname tanpa https://
-│   ├── remove [key]                   Hapus domain dari lisensi
-│   │   └── --domain   string*         Hostname yang dihapus
-│   └── list [key]                     Tampilkan domain terdaftar
+├── domain                               Manajemen domain (override manual)
+│   ├── list   [key]                     Tampilkan domain terdaftar
+│   ├── add    [key]                     Tambah domain secara manual
+│   │   └── --domain    string*          Hostname tanpa https://
+│   └── remove [key]                     Hapus domain dari lisensi
+│       └── --domain    string*          Hostname yang dihapus
+│
+├── theme
+│   ├── list                             Tampilkan semua tema
+│   ├── upload                           Upload tema baru dari file ZIP
+│   │   ├── --slug      string*          Slug unik tema
+│   │   ├── --name      string*          Nama tampilan tema
+│   │   ├── --version   string           Versi (default: 1.0.0)
+│   │   └── --file      string*          Path ke file ZIP
+│   ├── show  [slug]                     Detail tema
+│   ├── delete [slug]                    Hapus tema
+│   │   └── --force                      Lewati konfirmasi
+│   ├── assign [slug]                    Assign tema ke plan
+│   │   └── --plan      string*          Slug plan
+│   └── unassign [slug]                  Lepas tema dari plan
+│       └── --plan      string*          Slug plan
 │
 └── key
-    ├── generate                       Preview key tanpa simpan ke DB
-    │   ├── --plan     string          Slug plan
-    │   └── --years    int             0 = lifetime
-    └── verify [key]                   Cek format + checksum
+    ├── generate                         Preview key tanpa simpan ke DB
+    │   ├── --plan      string           Slug plan
+    │   └── --years     int              0 = lifetime
+    └── verify [key]                     Cek format + checksum key
 ```
 
 ---
 
+## 14. Alur Kerja End-to-End
+
+Gambaran lengkap dari pembelian lisensi oleh client sampai aplikasi aktif.
+
+### Sisi Vendor (ZyCrypt Server)
+
+```
+1. Setup awal (sekali)
+   ./zycrypt db migrate
+   ./zycrypt serve
+
+2. Buat plan (jika belum ada)
+   ./zycrypt plan create --name "Single Site 1 Tahun" --slug single_site_1y --limit 1 --duration 1y
+
+3. Upload tema
+   ./zycrypt theme upload --slug crm-starter --name "CRM Starter" --version 1.2.0 --file crm.zip
+   ./zycrypt theme assign crm-starter --plan single_site_1y
+
+4. Client beli lisensi → jalankan wizard
+   ./zycrypt register
+   → pilih paket, durasi, isi nama & email pelanggan
+   → salin ZYCRYPT_LICENSE_KEY yang muncul → kirim ke client
+```
+
+### Sisi Client (Laravel + Vue)
+
+```
+1. Install package
+   composer require ziaulkamal/zycrypt-laravel
+
+2. Set .env
+   ZYCRYPT_LICENSE_KEY=ZYC-XXXX-XXXX-XXXX-XXXX
+   ZYCRYPT_SERVER_URL=https://zycrypt.yourdomain.com
+   ZYCRYPT_SHARED_SECRET=shared_secret_sama_dengan_server
+
+3. Install & setup otomatis (satu perintah)
+   php artisan zycrypt:install
+
+   Perintah ini secara otomatis:
+   - Validasi lisensi ke server
+   - Simpan lock file
+   - Publish config & views
+   - Download & ekstrak tema (pilih dari daftar)
+   - Patch app.ts (inject ZyCrypt Vue plugin)
+   - Setup routes
+   - npm install & npm run build
+   - Pasang database guard (triggers + token table)
+
+4. Jalankan aplikasi
+   php artisan serve
+
+   → Saat request HTTP pertama masuk, domain otomatis terdaftar di server ZyCrypt
+   → Database guard aktif, setiap operasi DB diverifikasi via session token
+```
+
+### Skenario Domain
+
+| Kondisi | Yang Terjadi |
+|---|---|
+| Domain baru, slot masih ada | Otomatis terdaftar saat validasi pertama |
+| Domain sudah terdaftar | Validasi langsung berhasil |
+| Semua slot penuh, domain baru | Ditolak dengan `site_limit_reached` |
+| Domain perlu pindah | Vendor hapus domain lama: `domain remove`, lalu client deploy di domain baru |
+
+### Skenario Database Guard
+
+| Kondisi | Yang Terjadi |
+|---|---|
+| Guard aktif, token valid | Semua operasi DB berjalan normal |
+| Guard aktif, token tidak valid | Query ditolak di level database (trigger) |
+| Guard dihapus oleh client | Saat request berikutnya, guard otomatis dipasang ulang |
+| Guard gagal dipasang ulang | Aplikasi diblokir dengan halaman error `db_guard_missing` |
+
+---

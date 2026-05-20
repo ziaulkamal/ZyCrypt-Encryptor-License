@@ -6,12 +6,14 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	zcrypto "github.com/ziaulkamal/zycrypt/crypto"
 	"github.com/ziaulkamal/zycrypt/internal/domain"
 	"github.com/ziaulkamal/zycrypt/internal/license"
@@ -100,15 +102,19 @@ func (h *ValidateHandler) Validate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 6. Check / auto-register domain
+	// 6. Auto-register domain on first validation; reject if site limit full
 	ok, _, domErr := h.domSvc.Check(lic, req.Domain)
 	if domErr != nil {
-		writeError(w, "domain_mismatch", domErr.Error())
+		if errors.Is(domErr, domain.ErrSiteLimitReached) {
+			h.logEventRaw(lic, "site_limit_reached", req.Domain, r.RemoteAddr, req.PkgVersion)
+			writeError(w, "site_limit_reached", fmt.Sprintf("license has reached its site limit (%d)", lic.Plan.SiteLimit))
+		} else {
+			writeError(w, "domain_error", domErr.Error())
+		}
 		return
 	}
 	if !ok {
-		h.logEventRaw(lic, "domain_mismatch", req.Domain, r.RemoteAddr, req.PkgVersion)
-		writeError(w, "domain_mismatch", "domain is not registered for this license")
+		writeError(w, "domain_error", "could not register domain")
 		return
 	}
 
@@ -145,14 +151,11 @@ func (h *ValidateHandler) Validate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ValidateHandler) logEvent(event string, req validateRequest, r *http.Request) {
-	// minimal stub when license not found
-	_ = event
+	h.licSvc.LogActivity(uuid.Nil, event, req.Domain, r.RemoteAddr, req.PkgVersion)
 }
 
 func (h *ValidateHandler) logEventRaw(lic *license.License, event, dom, ip, pkgVer string) {
-	// delegate to license service logging
-	_ = lic
-	_ = event
+	h.licSvc.LogActivity(lic.ID, event, dom, ip, pkgVer)
 }
 
 // generateSessionToken produces a HMAC-signed token verified by PHP with a single hash_hmac call.

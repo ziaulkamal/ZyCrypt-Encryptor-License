@@ -194,6 +194,20 @@ func (s *Service) RecentLogs(licenseID uuid.UUID, limit int) ([]AuditLog, error)
 
 // ---- Internal helpers ----
 
+func (s *Service) LogActivity(licenseID uuid.UUID, event, domain, ip, pkgVer string) {
+	var d, i, p *string
+	if domain != "" {
+		d = &domain
+	}
+	if ip != "" {
+		i = &ip
+	}
+	if pkgVer != "" {
+		p = &pkgVer
+	}
+	s.log(licenseID, event, d, i, p, nil)
+}
+
 func (s *Service) log(licenseID uuid.UUID, event string, domain, ip, pkgVer *string, payload map[string]interface{}) {
 	entry := &AuditLog{
 		LicenseID:  licenseID,
