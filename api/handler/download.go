@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	chi "github.com/go-chi/chi/v5"
 	"github.com/ziaulkamal/zycrypt/internal/theme"
 )
 
@@ -31,12 +31,8 @@ func (h *DownloadHandler) Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encoded := base64.StdEncoding.EncodeToString(encrypted)
-
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+thm.Slug+`.bundle"`)
-	w.Header().Set("X-ZyCrypt-Theme", thm.Slug)
-	w.Header().Set("X-ZyCrypt-Version", thm.Version)
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(encoded))
+	writeJSON(w, http.StatusOK, map[string]string{
+		"data":     base64.StdEncoding.EncodeToString(encrypted),
+		"checksum": thm.Checksum,
+	})
 }
