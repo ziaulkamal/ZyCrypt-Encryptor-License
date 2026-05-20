@@ -11,6 +11,7 @@ import (
 	"github.com/ziaulkamal/zycrypt/db"
 	"github.com/ziaulkamal/zycrypt/internal/domain"
 	"github.com/ziaulkamal/zycrypt/internal/license"
+	"github.com/ziaulkamal/zycrypt/internal/theme"
 )
 
 func Start() error {
@@ -20,15 +21,25 @@ func Start() error {
 	r.Use(chimiddleware.Recoverer)
 	r.Use(apimiddleware.RateLimit(config.C.RateLimit.RequestsPerMinute))
 
-	licSvc := license.NewService(db.DB, config.C.Security.SharedSecret)
-	domSvc := domain.NewService(db.DB)
+	secret  := config.C.Security.SharedSecret
+	ttlMin  := config.C.Security.TokenTTLMinutes
 
-	vh := handler.NewValidateHandler(licSvc, domSvc, config.C.Security.SharedSecret, config.C.Security.TokenTTLMinutes)
-	ph := handler.NewPingHandler()
+	licSvc   := license.NewService(db.DB, secret)
+	domSvc   := domain.NewService(db.DB)
+	themeSvc := theme.NewService(db.DB, secret)
+
+	ph  := handler.NewPingHandler()
+	vh  := handler.NewValidateHandler(licSvc, domSvc, secret, ttlMin)
+	th  := handler.NewThemesHandler(licSvc, themeSvc, secret, ttlMin)
+	ah  := handler.NewActivateHandler(licSvc, themeSvc, secret, ttlMin)
+	dh  := handler.NewDownloadHandler(themeSvc)
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Get("/ping", ph.Ping)
-		r.Post("/validate", vh.Validate)
+		r.Get("/ping",                ph.Ping)
+		r.Post("/validate",           vh.Validate)
+		r.Post("/themes",             th.ListThemes)
+		r.Post("/activate",           ah.Activate)
+		r.Get("/download/{token}",    dh.Download)
 	})
 
 	return http.ListenAndServe(config.Addr(), r)

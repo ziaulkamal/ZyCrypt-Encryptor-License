@@ -68,3 +68,38 @@ const (
 	StatusBanned   = "banned"
 	StatusExpired  = "expired"
 )
+
+type Theme struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Slug      string    `gorm:"size:100;uniqueIndex;not null"                  json:"slug"`
+	Name      string    `gorm:"size:255;not null"                              json:"name"`
+	Version   string    `gorm:"size:20;not null;default:'1.0.0'"               json:"version"`
+	Bundle    []byte    `gorm:"type:bytea;not null"                            json:"-"`
+	Checksum  string    `gorm:"size:64;not null"                               json:"checksum"`
+	FileSize  int64     `gorm:"not null;default:0"                             json:"file_size"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func (Theme) TableName() string { return "themes" }
+
+type PlanTheme struct {
+	PlanID  uuid.UUID `gorm:"type:uuid;primaryKey" json:"plan_id"`
+	ThemeID uuid.UUID `gorm:"type:uuid;primaryKey" json:"theme_id"`
+	Theme   Theme     `gorm:"foreignKey:ThemeID"  json:"theme,omitempty"`
+}
+
+func (PlanTheme) TableName() string { return "plan_themes" }
+
+type DeliveryToken struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Token     string    `gorm:"size:64;uniqueIndex;not null"                   json:"token"`
+	LicenseID uuid.UUID `gorm:"type:uuid;not null"                             json:"license_id"`
+	ThemeID   uuid.UUID `gorm:"type:uuid;not null"                             json:"theme_id"`
+	Theme     Theme     `gorm:"foreignKey:ThemeID"                             json:"theme,omitempty"`
+	ExpiresAt time.Time `gorm:"not null"                                       json:"expires_at"`
+	Used      bool      `gorm:"not null;default:false"                         json:"used"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (DeliveryToken) TableName() string { return "delivery_tokens" }
